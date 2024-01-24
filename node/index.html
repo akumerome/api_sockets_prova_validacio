@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <title>Socket.IO chat</title>
+    <style>
+        body {
+            margin: 0;
+            padding-bottom: 3rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #form {
+            background: rgba(0, 0, 0, 0.15);
+            padding: 0.25rem;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            height: 3rem;
+            box-sizing: border-box;
+            backdrop-filter: blur(10px);
+        }
+
+        #input {
+            border: none;
+            padding: 0 1rem;
+            flex-grow: 1;
+            border-radius: 2rem;
+            margin: 0.25rem;
+        }
+
+        #input:focus {
+            outline: none;
+        }
+
+        #form>button {
+            background: #333;
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            outline: none;
+            color: #fff;
+        }
+
+        #messages {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        #messages>li {
+            padding: 0.5rem 1rem;
+        }
+
+        #messages>li:nth-child(odd) {
+            background: #efefef;
+        }
+    </style>
+</head>
+
+<body>
+    <ul id="snippets"></ul>
+
+    <!---->
+    <form id="login-form" action="">
+        <input id="email" autocomplete="off" />
+        <input id="password" autocomplete="off" />
+        <button type="submit">Send</button>
+    </form>
+    <p id="token"></p>
+    <button id="get-snippets">GET SNIPPETS</button>
+    <!---->
+
+    <form id="form" action="">
+        <input id="input" autocomplete="off" /><button>Send</button>
+    </form>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+
+        const form = document.getElementById('form');
+        const input = document.getElementById('input');
+        const snipetts = document.getElementById('snippets');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (input.value) {
+                //socket.emit('chat message', input.value);
+                input.value = '';
+            }
+        });
+
+        socket.on('chat message', (data) => {
+            for (let i = 0; i < data.length; i++) {
+                const item = document.createElement('li');
+                item.textContent = "user_id: " + data[i].user_id + ", titulo: " + data[i].titulo + ", snippet: " + data[i].snippet;
+                snippets.appendChild(item);
+            }
+        });
+
+        //
+
+        const loginForm = document.getElementById('login-form');
+        const getSnippetsButton = document.getElementById('get-snippets');
+        const token = document.getElementById('token');
+        let toke;
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            login();
+        });
+
+        getSnippetsButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            getSnippets();
+        });
+
+        const link = "http://127.0.0.1:8000";
+
+        function login() {
+            let url = link + "/api/login";
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: document.getElementById('email').value,
+                    password: document.getElementById('password').value
+                })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        incorrectLogin(data.error);
+                    } else {
+                        correctLogin(data);
+                    }
+                })
+                .catch(err => {
+                    console.log(err)
+                });
+        }
+
+        function incorrectLogin(errorMessage) {
+            alert(errorMessage);
+        }
+
+        function correctLogin(data) {
+            token.innerHTML = data.accesss_token;
+            toke = data.accesss_token;
+        }
+
+        function getSnippets() {
+            let url = link + "/api/all";
+
+            fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + toke,
+                    'Content-Type': 'application/json'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Handle the API response data here
+                    console.log(data);
+                    socket.emit('chat message', data);
+                    //formatOutput(data);
+
+                })
+                .catch(error => {
+                    console.error('There was a problem with the fetch operation:', error);
+                });
+        }
+
+        function formatOutput(data) {
+            for (let i = 0; i < data.length; i++) {
+                const item = document.createElement('li');
+                item.textContent = "user_id: " + data[i].user_id + ", titulo: " + data[i].titulo + ", snippet: " + data[i].snippet;
+                snippets.appendChild(item);
+            }
+        }
+    </script>
+</body>
+
+</html>
